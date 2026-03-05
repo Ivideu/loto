@@ -11,6 +11,7 @@
             --euro-gold: #ffcc00;
             --primi-green: #27ae60;
             --white: #ffffff;
+            --danger: #e74c3c;
         }
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
@@ -18,6 +19,7 @@
             margin: 0;
             padding: 20px;
             color: var(--primary);
+            text-align: center;
         }
         .header { margin-bottom: 30px; }
         .container {
@@ -41,9 +43,9 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 10px;
-            margin: 20px 0;
-            min-height: 50px;
+            gap: 12px;
+            margin: 25px 0;
+            min-height: 60px;
         }
         .ball {
             width: 45px;
@@ -55,60 +57,68 @@
             font-weight: bold;
             color: white;
             font-size: 1.1rem;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+            box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+            animation: bounceIn 0.5s ease;
         }
-        .ball-n { background: var(--primary); }
-        .ball-star { background: var(--euro-gold); color: var(--euro-blue); }
-        .ball-r { background: #e74c3c; }
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .ball-n { background: var(--primary); } /* Números estándar */
+        .ball-star { background: var(--euro-gold); color: var(--euro-blue); border: 2px solid var(--euro-blue); } /* Estrellas */
+        .ball-r { background: var(--danger); border: 2px solid #c0392b; } /* Reintegro */
 
         button {
             width: 100%;
-            padding: 12px;
+            padding: 15px;
             border: none;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         .btn-euro { background: var(--euro-blue); color: white; }
         .btn-primi { background: var(--primi-green); color: white; }
-        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        button:hover { filter: brightness(1.2); transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
 
-        .stats-info {
-            font-size: 0.8rem;
-            color: #7f8c8d;
-            font-style: italic;
+        .divider {
+            width: 2px;
+            height: 40px;
+            background: #ddd;
+            margin: 0 5px;
         }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>🎯 Generador Estadístico Profesional</h1>
-        <p>Algoritmo de probabilidad ponderada basado en históricos reales</p>
+        <h1>🎯 LottoStats Expert</h1>
+        <p>Análisis de frecuencias de los últimos 5 años</p>
     </div>
 
     <div class="container">
         <div class="card card-euro">
             <h2 style="color: var(--euro-blue)">Euromillones</h2>
-            <p>Ajustado por frecuencia de aparición (5 años)</p>
+            <p>5 Números + 2 Estrellas (Al final)</p>
             <div id="res-euro" class="ball-container"></div>
-            <button class="btn-euro" onclick="generar('euro')">Generar Apuesta Optimizada</button>
-            <p class="stats-info">Probabilidad calculada: Ponderación de números calientes.</p>
+            <button class="btn-euro" onclick="generar('euro')">Generar Euromillones</button>
         </div>
 
         <div class="card card-primi">
             <h2 style="color: var(--primi-green)">La Primitiva</h2>
-            <p>Ajustado por recurrencia estadística</p>
+            <p>6 Números + Reintegro (Al final)</p>
             <div id="res-primi" class="ball-container"></div>
-            <button class="btn-primi" onclick="generar('primi')">Generar Apuesta Optimizada</button>
-            <p class="stats-info">Cálculo basado en ley de los grandes números.</p>
+            <button class="btn-primi" onclick="generar('primi')">Generar Primitiva</button>
         </div>
     </div>
 
     <script>
-        // DATOS ESTADÍSTICOS REALES (Frecuencias aproximadas de los últimos 5 años)
+        // DATOS ESTADÍSTICOS REALES (Frecuencias aproximadas 5 años)
         const DATA = {
             euro: {
                 nums: {1:48, 2:35, 3:42, 4:39, 5:44, 6:31, 7:38, 8:36, 9:34, 10:41, 11:33, 12:37, 13:28, 14:39, 15:45, 16:32, 17:47, 18:34, 19:46, 20:49, 21:52, 22:31, 23:55, 24:34, 25:40, 26:38, 27:44, 28:39, 29:33, 30:37, 31:35, 32:38, 33:39, 34:44, 35:31, 36:39, 37:34, 38:51, 39:42, 40:33, 41:35, 42:48, 43:39, 44:46, 45:41, 46:38, 47:32, 48:44, 49:50, 50:47},
@@ -123,17 +133,15 @@
         function weightedRandom(freqMap, count) {
             let pool = Object.keys(freqMap).map(n => ({ n: parseInt(n), w: freqMap[n] }));
             let results = [];
-            
             for (let i = 0; i < count; i++) {
                 let totalW = pool.reduce((sum, item) => sum + item.w, 0);
                 let threshold = Math.random() * totalW;
                 let runningSum = 0;
-                
                 for (let j = 0; j < pool.length; j++) {
                     runningSum += pool[j].w;
                     if (runningSum >= threshold) {
                         results.push(pool[j].n);
-                        pool.splice(j, 1); // No repetir número
+                        pool.splice(j, 1);
                         break;
                     }
                 }
@@ -148,12 +156,19 @@
             if(tipo === 'euro') {
                 const n = weightedRandom(DATA.euro.nums, 5);
                 const s = weightedRandom(DATA.euro.stars, 2);
+                
+                // Primero números, luego estrellas
                 n.forEach(v => addBall(container, v, 'ball-n'));
+                // Añadimos un pequeño separador visual
+                const div = document.createElement('div'); div.className = 'divider'; container.appendChild(div);
                 s.forEach(v => addBall(container, v, 'ball-star'));
             } else {
                 const n = weightedRandom(DATA.primi.nums, 6);
                 const r = weightedRandom(DATA.primi.r, 1);
+                
+                // Primero números, luego reintegro
                 n.forEach(v => addBall(container, v, 'ball-n'));
+                const div = document.createElement('div'); div.className = 'divider'; container.appendChild(div);
                 addBall(container, r[0], 'ball-r');
             }
         }
