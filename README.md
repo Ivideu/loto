@@ -1,2 +1,0 @@
-# loto
-Euromillones Primitiva
