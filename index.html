@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador Estadístico</title>
+    <title>Generador Estadístico de Loterías</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -35,6 +35,7 @@
             padding: 2rem;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
         }
         h2 { margin-top: 0; }
         .euro-title { color: var(--euro-bg); }
@@ -50,6 +51,7 @@
             font-weight: bold;
         }
         button:hover { transform: scale(1.05); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
         .btn-euro { background-color: var(--euro-bg); color: var(--euro-color); }
         .btn-primi { background-color: var(--primi-color); }
         
@@ -72,47 +74,95 @@
             font-size: 1.2rem;
             color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            animation: popIn 0.3s ease-out forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0); }
+            100% { transform: scale(1); }
         }
         .ball.normal { background-color: var(--primary); }
         .ball.star { background-color: var(--euro-color); color: var(--euro-bg); }
         .ball.reintegro { background-color: #e74c3c; }
+        .status {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-bottom: 1rem;
+            min-height: 1.2rem;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Generador Inteligente</h1>
-    <p>Basado en ponderación estadística simulada</p>
+    <h1>Generador Inteligente de Apuestas</h1>
+    <p>Algoritmo basado en frecuencias históricas (API/JSON)</p>
 
     <div class="container">
         <div class="card">
             <h2 class="euro-title">Euromillones</h2>
             <p>5 números (1-50) + 2 Estrellas (1-12)</p>
-            <button class="btn-euro" onclick="generarEuromillones()">Generar Apuesta</button>
+            <div id="status-euro" class="status">Cargando datos...</div>
+            <button id="btn-euro" class="btn-euro" onclick="generarEuromillones()" disabled>Generar Apuesta</button>
             <div id="euro-results" class="results"></div>
         </div>
 
         <div class="card">
             <h2 class="primi-title">La Primitiva</h2>
             <p>6 números (1-49) + Reintegro (0-9)</p>
-            <button class="btn-primi" onclick="generarPrimitiva()">Generar Apuesta</button>
+            <div id="status-primi" class="status">Cargando datos...</div>
+            <button id="btn-primi" class="btn-primi" onclick="generarPrimitiva()" disabled>Generar Apuesta</button>
             <div id="primi-results" class="results"></div>
         </div>
     </div>
 
     <script>
-        /* * MOTOR ESTADÍSTICO
-         * Aquí deberías cargar las frecuencias reales de los últimos 5 años.
-         * Para este ejemplo, asignaremos a todos un peso base de 1.
-         * Si el número 7 ha salido mucho, puedes cambiar su peso a 1.5, etc.
-         */
+        // Variables globales para almacenar las frecuencias procesadas
+        let frecuenciasEuro = { numeros: {}, estrellas: {} };
+        let frecuenciasPrimi = { numeros: {}, reintegros: {} };
 
-        // Función para selección ponderada (Weighted Random)
-        function selectWeighted(maxNum, count) {
-            let weights = Array.from({length: maxNum}, (_, i) => ({
-                num: i + 1,
-                // Aquí simulamos que los números tienen diferentes "pesos" o frecuencias.
-                // En un caso real, leerías de una base de datos histórica.
-                weight: Math.random() * 0.5 + 0.8 
+        // 1. FUNCIÓN PARA OBTENER LOS DATOS (Fetch API)
+        async function cargarDatosEstadisticos() {
+            try {
+                // Aquí intentamos leer el archivo historial.json de tu GitHub
+                // Si tienes una URL de una API real, cámbiala aquí.
+                const response = await fetch('historial.json');
+                
+                if (!response.ok) {
+                    throw new Error('No se encontró el archivo JSON local');
+                }
+                
+                const data = await response.json();
+                procesarFrecuencias(data);
+                
+                document.getElementById('status-euro').textContent = "Datos históricos cargados ✓";
+                document.getElementById('status-primi').textContent = "Datos históricos cargados ✓";
+
+            } catch (error) {
+                console.warn("No se pudo cargar la API/JSON. Usando simulación de contingencia para demostración.", error);
+                document.getElementById('status-euro').textContent = "Modo simulación (API no detectada)";
+                document.getElementById('status-primi').textContent = "Modo simulación (API no detectada)";
+                generarFrecuenciasSimuladas(); // Fallback si no existe el JSON
+            } finally {
+                // Habilitamos los botones una vez tengamos datos (reales o simulados)
+                document.getElementById('btn-euro').disabled = false;
+                document.getElementById('btn-primi').disabled = false;
+            }
+        }
+
+        // 2. FUNCIÓN PARA PROCESAR EL JSON
+        function procesarFrecuencias(data) {
+            // Asumiendo que el JSON ya viene con el conteo de frecuencias.
+            // Si el JSON trae sorteos sueltos, aquí habría que contarlos.
+            frecuenciasEuro = data.euromillones;
+            frecuenciasPrimi = data.primitiva;
+        }
+
+        // 3. FUNCIÓN DE SELECCIÓN PONDERADA (El núcleo matemático)
+        // A mayor frecuencia, mayor probabilidad de ser elegido
+        function selectWeighted(frecuenciasObjeto, count) {
+            // Convertimos el objeto { "1": 45, "2": 30... } en un array de pesos
+            let weights = Object.keys(frecuenciasObjeto).map(num => ({
+                num: parseInt(num),
+                weight: frecuenciasObjeto[num]
             }));
 
             let selected = [];
@@ -125,8 +175,7 @@
                     sum += weights[j].weight;
                     if (random <= sum) {
                         selected.push(weights[j].num);
-                        // Remover para no repetir número
-                        weights.splice(j, 1);
+                        weights.splice(j, 1); // Lo quitamos para no repetirlo
                         break;
                     }
                 }
@@ -134,28 +183,13 @@
             return selected.sort((a, b) => a - b);
         }
 
-        // Seleccionar reintegro (del 0 al 9)
-        function selectReintegro() {
-            return Math.floor(Math.random() * 10);
-        }
-
-        // Mostrar bolas en el HTML
-        function displayBalls(containerId, numbers, cssClass) {
-            const container = document.getElementById(containerId);
-            numbers.forEach(num => {
-                const ball = document.createElement('div');
-                ball.className = `ball ${cssClass}`;
-                ball.textContent = num;
-                container.appendChild(ball);
-            });
-        }
-
+        // Funciones de generación de apuestas
         function generarEuromillones() {
             const container = document.getElementById('euro-results');
-            container.innerHTML = ''; // Limpiar anteriores
+            container.innerHTML = ''; 
             
-            const numeros = selectWeighted(50, 5);
-            const estrellas = selectWeighted(12, 2);
+            const numeros = selectWeighted(frecuenciasEuro.numeros, 5);
+            const estrellas = selectWeighted(frecuenciasEuro.estrellas, 2);
 
             displayBalls('euro-results', numeros, 'normal');
             displayBalls('euro-results', estrellas, 'star');
@@ -163,19 +197,43 @@
 
         function generarPrimitiva() {
             const container = document.getElementById('primi-results');
-            container.innerHTML = ''; // Limpiar anteriores
+            container.innerHTML = ''; 
             
-            const numeros = selectWeighted(49, 6);
-            const reintegro = selectReintegro();
+            const numeros = selectWeighted(frecuenciasPrimi.numeros, 6);
+            
+            // El reintegro también se elige por peso si tenemos los datos
+            const reintegro = selectWeighted(frecuenciasPrimi.reintegros, 1)[0];
 
             displayBalls('primi-results', numeros, 'normal');
             
-            // Renderizar reintegro
             const ballR = document.createElement('div');
             ballR.className = 'ball reintegro';
             ballR.textContent = reintegro;
             container.appendChild(ballR);
         }
+
+        function displayBalls(containerId, numbers, cssClass) {
+            const container = document.getElementById(containerId);
+            numbers.forEach((num, index) => {
+                setTimeout(() => {
+                    const ball = document.createElement('div');
+                    ball.className = `ball ${cssClass}`;
+                    ball.textContent = num;
+                    container.appendChild(ball);
+                }, index * 100); // Efecto visual de aparición escalonada
+            });
+        }
+
+        // --- SIMULADOR DE EMERGENCIA (Por si no subes el JSON a GitHub aún) ---
+        function generarFrecuenciasSimuladas() {
+            for(let i=1; i<=50; i++) frecuenciasEuro.numeros[i] = Math.floor(Math.random() * 50) + 10;
+            for(let i=1; i<=12; i++) frecuenciasEuro.estrellas[i] = Math.floor(Math.random() * 50) + 10;
+            for(let i=1; i<=49; i++) frecuenciasPrimi.numeros[i] = Math.floor(Math.random() * 50) + 10;
+            for(let i=0; i<=9; i++) frecuenciasPrimi.reintegros[i] = Math.floor(Math.random() * 50) + 10;
+        }
+
+        // Arrancar la carga de datos al abrir la página
+        window.onload = cargarDatosEstadisticos;
     </script>
 </body>
 </html>
